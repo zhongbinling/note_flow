@@ -1,6 +1,6 @@
 # NoteFlow 开发对话记录
 
-**日期**: 2026-02-19 ~ 2026-02-22
+**日期**: 2026-02-19 ~ 2026-02-23
 **项目**: NoteFlow - 高级笔记应用
 
 ---
@@ -575,6 +575,113 @@ const handleScrollToHeadingIndex = (e: CustomEvent<{ index: number; text: string
 };
 ```
 
+#### 10. Outline 点击导致工具栏消失（2026-02-23）
+
+**问题**：在 Rich/Preview/Edit 模式下，点击 Outline 中的标题后，格式工具栏（粗体、斜体等按钮）消失。
+
+**原因分析**：
+1. 使用 `scrollIntoView()` 触发了浏览器的布局重计算
+2. 这个布局重计算导致 SVG 图标（Lucide React 图标）的尺寸变为 0x0
+3. 工具栏按钮实际存在，但图标不可见
+
+**解决方案**：使用 `scrollTo()` 替代 `scrollIntoView()`：
+
+```typescript
+// Rich 模式 - 修改前
+targetHeading.scrollIntoView({ behavior: 'auto', block: 'start' });
+
+// Rich 模式 - 修改后
+const richEditor = document.querySelector('.rich-editor') as HTMLDivElement;
+if (richEditor && targetHeading) {
+  const editorRect = richEditor.getBoundingClientRect();
+  const headingRect = targetHeading.getBoundingClientRect();
+  const scrollOffset = headingRect.top - editorRect.top + richEditor.scrollTop;
+  richEditor.scrollTo({ top: scrollOffset, behavior: 'auto' });
+}
+```
+
+**Preview 模式修复**：同样使用 `scrollTo()` 替代 `scrollIntoView()`。
+
+**Edit 模式修复**：
+1. Edit 模式使用 CodeMirror 编辑器，滚动机制不同
+2. CodeMirror 的 `.cm-scroller` 设置了 `overflow: visible`，实际滚动容器是父元素
+3. 使用 `lineBlockAt()` 获取行的文档位置，然后设置容器的 `scrollTop`
+
+```typescript
+// Edit 模式滚动处理
+if (editorRef.current && editorContainerRef.current) {
+  const editorView = editorRef.current;
+  const container = editorContainerRef.current;
+  const doc = editorView.state.doc;
+
+  if (line > 0 && line <= doc.lines) {
+    const linePos = doc.line(line).from;
+    const lineBlock = editorView.lineBlockAt(linePos);
+
+    // 计算滚动位置
+    const margin = 50;
+    const targetScrollTop = Math.max(0, lineBlock.top - margin);
+
+    // 滚动容器（不是 CodeMirror 的 scrollDOM）
+    container.scrollTop = targetScrollTop;
+
+    // 设置光标位置
+    editorView.dispatch({
+      selection: { anchor: linePos },
+    });
+  }
+}
+```
+
+#### 11. Preview 模式 Outline 跳转位置不准确（2026-02-23）
+
+**问题**：Preview 模式下，点击 Outline 中的标题，跳转到错误的位置。
+
+**原因分析**：
+1. Preview 模式原本监听 `SCROLL_TO_LINE_EVENT`（行号）
+2. 使用 `line - 1` 作为标题索引，但行号和标题索引不对应
+3. 例如：第 10 行可能是第 2 个标题，使用 `line - 1 = 9` 会导致跳转到不存在的标题
+
+**解决方案**：Preview 模式改为监听 `SCROLL_TO_HEADING_INDEX_EVENT`：
+
+```typescript
+// 事件监听分离
+// Edit/Split 模式：监听 SCROLL_TO_LINE_EVENT（行号）
+// Preview/Rich 模式：监听 SCROLL_TO_HEADING_INDEX_EVENT（标题索引 + 文本）
+
+// Preview 模式处理
+if (previewMode === 'preview' && previewRef.current) {
+  const previewContainer = previewRef.current;
+  const headings = previewContainer.querySelectorAll('h1, h2, h3, h4, h5, h6');
+
+  // 优先通过文本匹配查找
+  let targetHeading: HTMLElement | null = null;
+  for (const heading of headings) {
+    if (heading.textContent?.trim() === text.trim()) {
+      targetHeading = heading as HTMLElement;
+      break;
+    }
+  }
+
+  // 回退到索引匹配
+  if (!targetHeading && index >= 0 && index < headings.length) {
+    targetHeading = headings[index] as HTMLElement;
+  }
+
+  if (targetHeading) {
+    const containerRect = previewContainer.getBoundingClientRect();
+    const headingRect = targetHeading.getBoundingClientRect();
+    const scrollOffset = headingRect.top - containerRect.top + previewContainer.scrollTop;
+    previewContainer.scrollTo({ top: scrollOffset, behavior: 'auto' });
+  }
+}
+```
+
+**关键技术点**：
+- `scrollIntoView()` 会触发布局重计算，可能导致 SVG 图标渲染异常
+- CodeMirror 的 `scrollDOM` 可能不是实际滚动容器（取决于 CSS 配置）
+- 行号和标题索引是不同的概念，需要分别处理
+
 ### 关键技术模式
 
 #### Ref 模式避免闭包陷阱
@@ -849,4 +956,4 @@ npm run test:e2e:report # 查看报告
 
 ---
 
-*文档导出时间: 2026-02-22*
+*文档导出时间: 2026-02-23*

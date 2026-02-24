@@ -8,6 +8,8 @@ This directory contains additional documentation for NoteFlow.
 |------|-------------|
 | [DEVELOPMENT_HISTORY.md](./DEVELOPMENT_HISTORY.md) | Development history and technical decisions |
 | [PLAYWRIGHT_README.md](./PLAYWRIGHT_README.md) | Playwright E2E testing guide |
+| [MOBILE_OPTIMIZATION.md](./MOBILE_OPTIMIZATION.md) | Mobile optimization requirements |
+| [MOBILE_OPTIMIZATION_CN.md](./MOBILE_OPTIMIZATION_CN.md) | 移动端优化需求（中文） |
 
 ## Main Documentation
 

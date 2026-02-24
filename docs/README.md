@@ -10,6 +10,8 @@ This directory contains additional documentation for NoteFlow.
 | [PLAYWRIGHT_README.md](./PLAYWRIGHT_README.md) | Playwright E2E testing guide |
 | [MOBILE_OPTIMIZATION.md](./MOBILE_OPTIMIZATION.md) | Mobile optimization requirements |
 | [MOBILE_OPTIMIZATION_CN.md](./MOBILE_OPTIMIZATION_CN.md) | 移动端优化需求（中文） |
+| [ACCOUNT_SYSTEM.md](./ACCOUNT_SYSTEM.md) | Account system design |
+| [ACCOUNT_SYSTEM_CN.md](./ACCOUNT_SYSTEM_CN.md) | 账号系统设计（中文） |
 
 ## Main Documentation
 

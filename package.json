@@ -1,8 +1,28 @@
 {
   "name": "noteflow",
-  "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
+  "description": "A beautiful, powerful, and easy-to-use note-taking application with Markdown support",
   "type": "module",
+  "private": false,
+  "author": "zhongbinling",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zhongbinling/noteflow.git"
+  },
+  "bugs": {
+    "url": "https://github.com/zhongbinling/noteflow/issues"
+  },
+  "homepage": "https://github.com/zhongbinling/noteflow#readme",
+  "keywords": [
+    "notes",
+    "note-taking",
+    "markdown",
+    "editor",
+    "react",
+    "typescript",
+    "wysiwyg"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -43,5 +63,8 @@
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.48.0",
     "vite": "^7.3.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

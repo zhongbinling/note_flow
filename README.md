@@ -1,76 +1,164 @@
-# note_flow
-note_flow main repo
+# NoteFlow
 
-# React + TypeScript + Vite
+<p align="center">
+  <strong>A beautiful, powerful, and easy-to-use note-taking application</strong>
+</p>
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+<p align="center">
+  <img src="https://img.shields.io/badge/React-19.2.0-61DAFB?logo=react" alt="React">
+  <img src="https://img.shields.io/badge/TypeScript-5.9.3-3178C6?logo=typescript" alt="TypeScript">
+  <img src="https://img.shields.io/badge/Vite-7.3.1-646CFF?logo=vite" alt="Vite">
+  <img src="https://img.shields.io/badge/TailwindCSS-3.4.19-06B6D4?logo=tailwindcss" alt="TailwindCSS">
+  <img src="https://img.shields.io/badge/License-MIT-green" alt="License">
+</p>
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Features
 
-## React Compiler
+### Editor
+- **Multiple Editor Modes**: Edit, Split, Preview, and Rich Text (WYSIWYG)
+- **Markdown Support**: Full Markdown syntax with real-time preview
+- **Code Highlighting**: Syntax highlighting for code blocks
+- **Format Toolbar**: Bold, italic, headings, lists, quotes, code, links, images
+- **Image Support**: Paste or upload images with automatic compression
+- **Auto-save**: Debounced saving to prevent data loss
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Organization
+- **Folder Management**: Create, rename, and delete folders
+- **Note Organization**: Move notes between folders
+- **Full-text Search**: Search across titles, content, and tags with highlighting
 
-## Expanding the ESLint configuration
+### User Experience
+- **Dark Mode**: Full dark theme support
+- **Outline Navigation**: Quick navigation through document headings
+- **Responsive Design**: Adapts to different screen sizes
+- **Import/Export**: Export notes as Markdown or JSON, import back anytime
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Screenshots
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+> Screenshots will be added soon
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## Getting Started
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### Prerequisites
+
+- Node.js 18+
+- npm or yarn
+
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/zhongbinling/noteflow.git
+cd noteflow
+
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+The application will be available at `http://localhost:5173`
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### Build for Production
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run build
 ```
+
+The built files will be in the `dist` directory.
+
+## Tech Stack
+
+| Category | Technology |
+|----------|------------|
+| Framework | React 19 |
+| Language | TypeScript |
+| Build Tool | Vite |
+| Styling | Tailwind CSS |
+| Editor | CodeMirror |
+| Markdown Parser | marked |
+| HTML to Markdown | Turndown |
+| State Management | Zustand |
+| Icons | Lucide React |
+| E2E Testing | Playwright |
+
+## Project Structure
+
+```
+noteflow/
+├── src/
+│   ├── components/
+│   │   ├── Editor/          # Markdown editor components
+│   │   ├── Layout/          # Layout components (Sidebar, Header)
+│   │   ├── NoteList/        # Note list component
+│   │   └── common/          # Shared components
+│   ├── store/               # Zustand state management
+│   ├── types/               # TypeScript type definitions
+│   ├── utils/               # Utility functions
+│   ├── App.tsx              # Main application component
+│   └── main.tsx             # Entry point
+├── tests/                   # Playwright E2E tests
+├── public/                  # Static assets
+└── ...config files
+```
+
+## Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start development server |
+| `npm run build` | Build for production |
+| `npm run preview` | Preview production build |
+| `npm run lint` | Run ESLint |
+| `npm run test:e2e` | Run E2E tests |
+| `npm run test:e2e:ui` | Run E2E tests with UI |
+| `npm run test:e2e:report` | View test report |
+
+## Roadmap
+
+### Phase 1 (Current - MVP)
+- [x] Markdown editor with multiple modes
+- [x] Folder-based organization
+- [x] Full-text search
+- [x] Dark mode
+- [x] Import/Export
+
+### Phase 2
+- [ ] Bidirectional links `[[note-name]]`
+- [ ] Backlinks panel
+- [ ] Tag system
+- [ ] Knowledge graph visualization
+
+### Phase 3
+- [ ] AI writing assistant
+- [ ] Multiple AI model support
+- [ ] Local model support (Ollama)
+
+### Phase 4
+- [ ] Electron desktop app
+- [ ] Local file system access
+- [ ] Plugin system
+
+## Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+
+- [CodeMirror](https://codemirror.net/) - Versatile text editor
+- [marked](https://marked.js.org/) - Markdown parser
+- [Lucide](https://lucide.dev/) - Beautiful icons
+- [Tailwind CSS](https://tailwindcss.com/) - Utility-first CSS framework
+
+---
+
+<p align="center">
+  Made with ❤️ by <a href="https://github.com/zhongbinling">zhongbinling</a>
+</p>

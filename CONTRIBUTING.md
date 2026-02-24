@@ -2,6 +2,10 @@
 
 Thank you for your interest in contributing to NoteFlow! This document provides guidelines and instructions for contributing.
 
+<p align="center">
+  <b>English</b> | <a href="CONTRIBUTING_CN.md">简体中文</a>
+</p>
+
 ## Table of Contents
 
 - [Code of Conduct](#code-of-conduct)

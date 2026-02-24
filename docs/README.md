@@ -13,6 +13,12 @@ This directory contains additional documentation for NoteFlow.
 
 For the main project documentation, see:
 
+### English
 - [README.md](../README.md) - Project overview and getting started
 - [CHANGELOG.md](../CHANGELOG.md) - Version history and changes
 - [CONTRIBUTING.md](../CONTRIBUTING.md) - Contribution guidelines
+
+### 中文 (Chinese)
+- [README_CN.md](../README_CN.md) - 项目概述和快速开始
+- [CHANGELOG_CN.md](../CHANGELOG_CN.md) - 版本历史和变更
+- [CONTRIBUTING_CN.md](../CONTRIBUTING_CN.md) - 贡献指南

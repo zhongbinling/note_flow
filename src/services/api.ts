@@ -102,7 +102,7 @@ export const notesApi = {
   },
 
   // Update note
-  update: async (id: string, data: { title?: string; content?: string }) => {
+  update: async (id: string, data: { title?: string; content?: string; folderId?: string | null }) => {
     return apiRequest(`/notes/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
@@ -133,7 +133,7 @@ export const foldersApi = {
   },
 
   // Update folder
-  update: async (id: string, data: { name?: string }) => {
+  update: async (id: string, data: { name?: string; parentId?: string | null }) => {
     return apiRequest(`/folders/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
@@ -144,6 +144,59 @@ export const foldersApi = {
   delete: async (id: string) => {
     return apiRequest(`/folders/${id}`, {
       method: 'DELETE',
+    });
+  },
+};
+
+// Sync API
+export const syncApi = {
+  // Pull all data from server
+  pull: async (): Promise<{
+    success: boolean;
+    data: {
+      folders: Array<{
+        id: string;
+        userId: string;
+        name: string;
+        parentId: string | null;
+        createdAt: string;
+        updatedAt: string;
+      }>;
+      notes: Array<{
+        id: string;
+        userId: string;
+        folderId: string | null;
+        title: string;
+        content: string;
+        tags: string;
+        createdAt: string;
+        updatedAt: string;
+      }>;
+      lastSyncTime: string;
+    };
+  }> => {
+    return apiRequest('/sync/pull');
+  },
+
+  // Push local data to server
+  push: async (data: {
+    folders?: Array<{
+      id: string;
+      name: string;
+      parentId?: string;
+      action: 'create' | 'update';
+    }>;
+    notes?: Array<{
+      id: string;
+      title: string;
+      content: string;
+      folderId?: string;
+      action: 'create' | 'update';
+    }>;
+  }) => {
+    return apiRequest('/sync/push', {
+      method: 'POST',
+      body: JSON.stringify(data),
     });
   },
 };

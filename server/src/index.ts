@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import authRoutes from './routes/auth.js';
+import notesRoutes from './routes/notes.js';
 import { prisma } from './services/database.js';
 
 const app = express();
@@ -40,6 +41,7 @@ app.use('/api/auth/register', authLimiter);
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api', notesRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

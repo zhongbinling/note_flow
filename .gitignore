@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Environment files
+.env
+.env.local
+.env.*.local
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -26,3 +31,9 @@ dist-ssr
 # Test reports
 playwright-report/
 test-results/
+
+# Database files
+*.db
+*.db-journal
+server/prisma/*.db
+server/prisma/*.db-journal

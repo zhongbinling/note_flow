@@ -26,24 +26,27 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
     }
 
     const token = authHeader.split(' ')[1];
-    const userId = verifyToken(token);
+    const decoded = verifyToken(token);
 
-    if (!userId) {
+    if (!decoded) {
       return res.status(401).json({
         success: false,
         error: 'Invalid or expired token',
       });
     }
 
-    req.userId = userId;
+    req.userId = decoded.userId;
     next();
-  } catch (error) {
+  } catch {
     return res.status(401).json({
       success: false,
       error: 'Authentication failed',
     });
   }
 }
+
+// Alias for authMiddleware
+export const authenticate = authMiddleware;
 
 // Optional auth - doesn't fail if no token
 export function optionalAuthMiddleware(req: Request, res: Response, next: NextFunction) {
@@ -52,9 +55,9 @@ export function optionalAuthMiddleware(req: Request, res: Response, next: NextFu
 
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.split(' ')[1];
-      const userId = verifyToken(token);
-      if (userId) {
-        req.userId = userId;
+      const decoded = verifyToken(token);
+      if (decoded) {
+        req.userId = decoded.userId;
       }
     }
     next();

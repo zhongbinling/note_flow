@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import JSZip from 'jszip';
+import { notesApi, foldersApi, syncApi } from '../services/api';
+import { useAuthStore } from '../stores/authStore';
 
 // Types defined inline to avoid import issues
 export interface Note {
@@ -8,15 +10,18 @@ export interface Note {
   title: string;
   content: string;
   folder: string;
+  folderId?: string | null;
   tags: string[];
   createdAt: number;
   updatedAt: number;
+  synced?: boolean; // Track sync status
 }
 
 export interface Folder {
   id: string;
   name: string;
   parentId: string | null;
+  synced?: boolean;
 }
 
 // Default notes for first time users
@@ -138,6 +143,9 @@ interface NoteStore {
   searchQuery: string;
   lastSaved: number | null;
   previewMode: 'edit' | 'preview' | 'live' | 'rich';
+  isSyncing: boolean;
+  syncError: string | null;
+  lastSyncTime: string | null;
 
   setActiveNote: (id: string | null) => void;
   setActiveFolder: (id: string) => void;
@@ -159,6 +167,12 @@ interface NoteStore {
   renameFolder: (id: string, newName: string) => void;
   deleteFolder: (id: string) => void;
   moveNoteToFolder: (noteId: string, folderName: string) => void;
+
+  // Sync functions
+  pullFromServer: () => Promise<void>;
+  syncNoteToServer: (noteId: string) => Promise<void>;
+  syncFolderToServer: (folderId: string) => Promise<void>;
+  clearSyncError: () => void;
 }
 
 export const useNoteStore = create<NoteStore>()(
@@ -171,6 +185,9 @@ export const useNoteStore = create<NoteStore>()(
       searchQuery: '',
       lastSaved: null,
       previewMode: 'edit',
+      isSyncing: false,
+      syncError: null,
+      lastSyncTime: null,
 
       setActiveNote: (id) => set({ activeNoteId: id }),
 
@@ -180,7 +197,7 @@ export const useNoteStore = create<NoteStore>()(
 
       setPreviewMode: (mode) => set({ previewMode: mode }),
 
-      updateNoteContent: (id, content) =>
+      updateNoteContent: (id, content) => {
         set((state) => ({
           notes: state.notes.map((note) =>
             note.id === id
@@ -193,29 +210,75 @@ export const useNoteStore = create<NoteStore>()(
               : note
           ),
           lastSaved: Date.now(),
-        })),
+        }));
+        // Sync to server if authenticated
+        const isAuthenticated = useAuthStore.getState().isAuthenticated;
+        if (isAuthenticated) {
+          get().syncNoteToServer(id);
+        }
+      },
 
-      createNote: (folder = 'General') => {
-        const newNote: Note = {
+      createNote: async (folder = 'General') => {
+        const isAuthenticated = useAuthStore.getState().isAuthenticated;
+        const folderData = get().folders.find(f => f.name === folder);
+
+        let newNote: Note = {
           id: Date.now().toString(),
           title: 'Untitled',
           content: '# Untitled\n\nStart writing here...',
           folder,
+          folderId: folderData?.id || null,
           tags: [],
           createdAt: Date.now(),
           updatedAt: Date.now(),
+          synced: false,
         };
+
+        // If authenticated, create on server first
+        if (isAuthenticated) {
+          try {
+            const response = await notesApi.create({
+              title: newNote.title,
+              content: newNote.content,
+              folderId: folderData?.id && folderData.id !== 'all' ? folderData.id : undefined,
+            });
+            if (response.success && response.data) {
+              newNote = {
+                ...newNote,
+                id: response.data.id,
+                folderId: response.data.folderId,
+                synced: true,
+              };
+            }
+          } catch (error) {
+            console.error('Failed to create note on server:', error);
+          }
+        }
+
         set((state) => ({
           notes: [newNote, ...state.notes],
           activeNoteId: newNote.id,
         }));
       },
 
-      deleteNote: (id) =>
+      deleteNote: async (id) => {
+        const isAuthenticated = useAuthStore.getState().isAuthenticated;
+        const note = get().notes.find(n => n.id === id);
+
+        // If authenticated and note was synced, delete from server
+        if (isAuthenticated && note?.synced) {
+          try {
+            await notesApi.delete(id);
+          } catch (error) {
+            console.error('Failed to delete note from server:', error);
+          }
+        }
+
         set((state) => ({
           notes: state.notes.filter((note) => note.id !== id),
           activeNoteId: state.activeNoteId === id ? null : state.activeNoteId,
-        })),
+        }));
+      },
 
       getActiveNote: () => {
         const state = get();
@@ -396,7 +459,7 @@ export const useNoteStore = create<NoteStore>()(
       },
 
       // Create a new folder
-      createFolder: (name: string) => {
+      createFolder: async (name: string) => {
         const trimmedName = name.trim();
         if (!trimmedName) return;
 
@@ -406,18 +469,38 @@ export const useNoteStore = create<NoteStore>()(
         );
         if (exists) return;
 
-        const newFolder: Folder = {
+        let newFolder: Folder = {
           id: Date.now().toString(),
           name: trimmedName,
           parentId: null,
+          synced: false,
         };
+
+        const isAuthenticated = useAuthStore.getState().isAuthenticated;
+
+        // If authenticated, create on server first
+        if (isAuthenticated) {
+          try {
+            const response = await foldersApi.create({ name: trimmedName });
+            if (response.success && response.data) {
+              newFolder = {
+                ...newFolder,
+                id: response.data.id,
+                synced: true,
+              };
+            }
+          } catch (error) {
+            console.error('Failed to create folder on server:', error);
+          }
+        }
+
         set((state) => ({
           folders: [...state.folders, newFolder],
         }));
       },
 
       // Rename a folder
-      renameFolder: (id: string, newName: string) => {
+      renameFolder: async (id: string, newName: string) => {
         const trimmedName = newName.trim();
         if (!trimmedName || id === 'all') return;
 
@@ -429,6 +512,17 @@ export const useNoteStore = create<NoteStore>()(
           f => f.id !== id && f.name.toLowerCase() === trimmedName.toLowerCase()
         );
         if (exists) return;
+
+        const isAuthenticated = useAuthStore.getState().isAuthenticated;
+
+        // Sync to server if authenticated
+        if (isAuthenticated && oldFolder.synced) {
+          try {
+            await foldersApi.update(id, { name: trimmedName });
+          } catch (error) {
+            console.error('Failed to rename folder on server:', error);
+          }
+        }
 
         set((state) => ({
           folders: state.folders.map(f =>
@@ -444,11 +538,22 @@ export const useNoteStore = create<NoteStore>()(
       },
 
       // Delete a folder and optionally move notes
-      deleteFolder: (id: string) => {
+      deleteFolder: async (id: string) => {
         if (id === 'all') return;
 
         const folder = get().folders.find(f => f.id === id);
         if (!folder) return;
+
+        const isAuthenticated = useAuthStore.getState().isAuthenticated;
+
+        // Delete from server if authenticated and synced
+        if (isAuthenticated && folder.synced) {
+          try {
+            await foldersApi.delete(id);
+          } catch (error) {
+            console.error('Failed to delete folder from server:', error);
+          }
+        }
 
         // Move notes in this folder to General
         set((state) => ({
@@ -463,15 +568,161 @@ export const useNoteStore = create<NoteStore>()(
       },
 
       // Move a note to a different folder
-      moveNoteToFolder: (noteId: string, folderName: string) => {
+      moveNoteToFolder: async (noteId: string, folderName: string) => {
+        const note = get().notes.find(n => n.id === noteId);
+        const folder = get().folders.find(f => f.name === folderName);
+        const isAuthenticated = useAuthStore.getState().isAuthenticated;
+
+        // Sync to server if authenticated
+        if (isAuthenticated && note?.synced) {
+          try {
+            await notesApi.update(noteId, {
+              folderId: folder?.id && folder.id !== 'all' ? folder.id : null,
+            });
+          } catch (error) {
+            console.error('Failed to move note on server:', error);
+          }
+        }
+
         set((state) => ({
           notes: state.notes.map(note =>
             note.id === noteId
-              ? { ...note, folder: folderName, updatedAt: Date.now() }
+              ? { ...note, folder: folderName, folderId: folder?.id, updatedAt: Date.now() }
               : note
           ),
         }));
       },
+
+      // Pull all data from server
+      pullFromServer: async () => {
+        const isAuthenticated = useAuthStore.getState().isAuthenticated;
+        if (!isAuthenticated) return;
+
+        set({ isSyncing: true, syncError: null });
+
+        try {
+          const response = await syncApi.pull();
+
+          if (response.success) {
+            const { folders: serverFolders, notes: serverNotes, lastSyncTime } = response.data;
+
+            // Map server folders to local format
+            const mappedFolders: Folder[] = serverFolders.map(f => ({
+              id: f.id,
+              name: f.name,
+              parentId: f.parentId,
+              synced: true,
+            }));
+
+            // Map server notes to local format
+            const mappedNotes: Note[] = serverNotes.map(n => ({
+              id: n.id,
+              title: n.title,
+              content: n.content,
+              folder: '', // Will be set below
+              folderId: n.folderId,
+              tags: n.tags ? JSON.parse(n.tags) : [],
+              createdAt: new Date(n.createdAt).getTime(),
+              updatedAt: new Date(n.updatedAt).getTime(),
+              synced: true,
+            }));
+
+            // Link notes to folder names
+            const folderMap = new Map(mappedFolders.map(f => [f.id, f.name]));
+            mappedNotes.forEach(note => {
+              if (note.folderId && folderMap.has(note.folderId)) {
+                note.folder = folderMap.get(note.folderId)!;
+              } else {
+                note.folder = 'General';
+              }
+            });
+
+            // Add 'All Notes' virtual folder if not present
+            if (!mappedFolders.find(f => f.id === 'all')) {
+              mappedFolders.unshift({ id: 'all', name: 'All Notes', parentId: null, synced: true });
+            }
+
+            set({
+              notes: mappedNotes,
+              folders: mappedFolders,
+              lastSyncTime,
+              isSyncing: false,
+            });
+          }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Failed to sync with server';
+          set({ syncError: message, isSyncing: false });
+        }
+      },
+
+      // Sync a single note to server
+      syncNoteToServer: async (noteId: string) => {
+        const isAuthenticated = useAuthStore.getState().isAuthenticated;
+        if (!isAuthenticated) return;
+
+        const note = get().notes.find(n => n.id === noteId);
+        if (!note) return;
+
+        try {
+          const folderId = get().folders.find(f => f.name === note.folder)?.id;
+
+          if (note.synced) {
+            // Update existing note
+            await notesApi.update(noteId, {
+              title: note.title,
+              content: note.content,
+              folderId: folderId || null,
+            });
+          } else {
+            // Create new note on server
+            await notesApi.create({
+              title: note.title,
+              content: note.content,
+              folderId: folderId || undefined,
+            });
+            // Mark as synced
+            set((state) => ({
+              notes: state.notes.map(n =>
+                n.id === noteId ? { ...n, synced: true } : n
+              ),
+            }));
+          }
+        } catch (error) {
+          console.error('Failed to sync note:', error);
+        }
+      },
+
+      // Sync a single folder to server
+      syncFolderToServer: async (folderId: string) => {
+        const isAuthenticated = useAuthStore.getState().isAuthenticated;
+        if (!isAuthenticated || folderId === 'all') return;
+
+        const folder = get().folders.find(f => f.id === folderId);
+        if (!folder) return;
+
+        try {
+          if (folder.synced) {
+            // Update existing folder
+            await foldersApi.update(folderId, { name: folder.name });
+          } else {
+            // Create new folder on server
+            await foldersApi.create({
+              name: folder.name,
+              parentId: folder.parentId || undefined,
+            });
+            // Mark as synced
+            set((state) => ({
+              folders: state.folders.map(f =>
+                f.id === folderId ? { ...f, synced: true } : f
+              ),
+            }));
+          }
+        } catch (error) {
+          console.error('Failed to sync folder:', error);
+        }
+      },
+
+      clearSyncError: () => set({ syncError: null }),
     }),
     {
       name: 'noteflow-storage',

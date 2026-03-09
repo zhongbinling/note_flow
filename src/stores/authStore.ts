@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { authApi, type User } from '../services/api';
+import { useNoteStore } from '../store/noteStore';
 
 interface AuthState {
   user: User | null;
@@ -42,6 +43,8 @@ export const useAuthStore = create<AuthState>()(
               isAuthenticated: true,
               isLoading: false,
             });
+            // Pull notes from server after successful login
+            useNoteStore.getState().pullFromServer();
             return true;
           }
 
@@ -91,14 +94,24 @@ export const useAuthStore = create<AuthState>()(
       },
 
       checkAuth: async () => {
-        const token = get().token || localStorage.getItem('token');
+        const state = get();
 
-        if (!token) {
-          set({ isAuthenticated: false, user: null });
+        // If already authenticated, don't re-check (avoid flickering)
+        if (state.isAuthenticated && state.user) {
           return;
         }
 
-        set({ isLoading: true });
+        const token = state.token || localStorage.getItem('token');
+
+        if (!token) {
+          set({ isAuthenticated: false, user: null, isLoading: false });
+          return;
+        }
+
+        // Only show loading if not already authenticated
+        if (!state.isAuthenticated) {
+          set({ isLoading: true });
+        }
 
         try {
           const response = await authApi.me();
@@ -110,6 +123,8 @@ export const useAuthStore = create<AuthState>()(
               isAuthenticated: true,
               isLoading: false,
             });
+            // Pull notes from server when session is restored
+            useNoteStore.getState().pullFromServer();
           } else {
             localStorage.removeItem('token');
             set({
@@ -120,13 +135,19 @@ export const useAuthStore = create<AuthState>()(
             });
           }
         } catch {
-          localStorage.removeItem('token');
-          set({
-            user: null,
-            token: null,
-            isAuthenticated: false,
-            isLoading: false,
-          });
+          // On error, keep the current state if already authenticated
+          // Only clear auth if not already authenticated
+          if (!state.isAuthenticated) {
+            localStorage.removeItem('token');
+            set({
+              user: null,
+              token: null,
+              isAuthenticated: false,
+              isLoading: false,
+            });
+          } else {
+            set({ isLoading: false });
+          }
         }
       },
 
@@ -151,6 +172,8 @@ export const useAuthStore = create<AuthState>()(
       name: 'noteflow-auth',
       partialize: (state) => ({
         token: state.token,
+        isAuthenticated: state.isAuthenticated,
+        user: state.user,
       }),
     }
   )

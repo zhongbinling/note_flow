@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
-import { Search, Sun, Moon, Download, Upload, Check, ChevronDown, LogIn, User, LogOut } from 'lucide-react';
+import { Search, Sun, Moon, Download, Upload, Check, ChevronDown, LogIn, User, LogOut, Settings } from 'lucide-react';
 import { useThemeStore } from '../../store/themeStore';
 import { useNoteStore } from '../../store/noteStore';
 import { useAuthStore } from '../../stores/authStore';
 import { AuthModal } from '../Auth';
+import SettingsModal from '../Settings/SettingsModal';
 
 export default function Header() {
   const { isDark, toggleTheme } = useThemeStore();
@@ -22,6 +23,7 @@ export default function Header() {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [authModalView, setAuthModalView] = useState<'login' | 'register'>('login');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -57,12 +59,6 @@ export default function Header() {
 
   const openLoginModal = () => {
     setAuthModalView('login');
-    setShowAuthModal(true);
-    setShowUserMenu(false);
-  };
-
-  const openRegisterModal = () => {
-    setAuthModalView('register');
     setShowAuthModal(true);
     setShowUserMenu(false);
   };
@@ -214,6 +210,16 @@ export default function Header() {
                       </p>
                     </div>
                     <button
+                      onClick={() => {
+                        setShowSettingsModal(true);
+                        setShowUserMenu(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                    >
+                      <Settings size={16} />
+                      设置
+                    </button>
+                    <button
                       onClick={handleLogout}
                       className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
                     >
@@ -241,6 +247,12 @@ export default function Header() {
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
         defaultView={authModalView}
+      />
+
+      {/* Settings Modal */}
+      <SettingsModal
+        isOpen={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
       />
     </>
   );

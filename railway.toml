@@ -1,0 +1,19 @@
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "cd server && npm run start"
+healthcheckPath = "/api/health"
+healthcheckTimeout = 300
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+[[services]]
+name = "noteflow"
+
+[[services.source]]
+repo = "https://github.com/zhongbinling/noteflow"
+branch = "main"
+
+[services.variables]
+NODE_ENV = "production"

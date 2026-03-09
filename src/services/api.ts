@@ -25,6 +25,32 @@ export interface ApiError {
   details?: Array<{ path: string[]; message: string }>;
 }
 
+export interface NoteResponse {
+  success: boolean;
+  data: {
+    id: string;
+    userId: string;
+    folderId: string | null;
+    title: string;
+    content: string;
+    tags: string;
+    createdAt: string;
+    updatedAt: string;
+  };
+}
+
+export interface FolderResponse {
+  success: boolean;
+  data: {
+    id: string;
+    userId: string;
+    name: string;
+    parentId: string | null;
+    createdAt: string;
+    updatedAt: string;
+  };
+}
+
 // Helper function for API calls
 async function apiRequest<T>(
   endpoint: string,
@@ -79,22 +105,51 @@ export const authApi = {
       method: 'POST',
     });
   },
+
+  // Change password
+  changePassword: async (currentPassword: string, newPassword: string): Promise<{ success: boolean; message: string }> => {
+    return apiRequest('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+  },
+
+  // Forgot password
+  forgotPassword: async (email: string): Promise<{ success: boolean; message: string }> => {
+    return apiRequest('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  },
+
+  // Reset password
+  resetPassword: async (token: string, newPassword: string): Promise<{ success: boolean; message: string }> => {
+    return apiRequest('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ token, newPassword }),
+    });
+  },
+
+  // Verify reset token
+  verifyResetToken: async (token: string): Promise<{ success: boolean; data?: { email: string; name: string | null } }> => {
+    return apiRequest(`/auth/verify-reset-token/${token}`);
+  },
 };
 
 // Notes API
 export const notesApi = {
   // Get all notes
-  getAll: async () => {
+  getAll: async (): Promise<{ success: boolean; data: NoteResponse['data'][] }> => {
     return apiRequest('/notes');
   },
 
   // Get single note
-  get: async (id: string) => {
+  get: async (id: string): Promise<NoteResponse> => {
     return apiRequest(`/notes/${id}`);
   },
 
   // Create note
-  create: async (data: { title: string; content: string; folderId?: string }) => {
+  create: async (data: { title: string; content: string; folderId?: string }): Promise<NoteResponse> => {
     return apiRequest('/notes', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -102,7 +157,7 @@ export const notesApi = {
   },
 
   // Update note
-  update: async (id: string, data: { title?: string; content?: string; folderId?: string | null }) => {
+  update: async (id: string, data: { title?: string; content?: string; folderId?: string | null }): Promise<NoteResponse> => {
     return apiRequest(`/notes/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
@@ -110,7 +165,7 @@ export const notesApi = {
   },
 
   // Delete note
-  delete: async (id: string) => {
+  delete: async (id: string): Promise<{ success: boolean; message: string }> => {
     return apiRequest(`/notes/${id}`, {
       method: 'DELETE',
     });
@@ -120,12 +175,12 @@ export const notesApi = {
 // Folders API
 export const foldersApi = {
   // Get all folders
-  getAll: async () => {
+  getAll: async (): Promise<{ success: boolean; data: FolderResponse['data'][] }> => {
     return apiRequest('/folders');
   },
 
   // Create folder
-  create: async (data: { name: string; parentId?: string }) => {
+  create: async (data: { name: string; parentId?: string }): Promise<FolderResponse> => {
     return apiRequest('/folders', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -133,7 +188,7 @@ export const foldersApi = {
   },
 
   // Update folder
-  update: async (id: string, data: { name?: string; parentId?: string | null }) => {
+  update: async (id: string, data: { name?: string; parentId?: string | null }): Promise<FolderResponse> => {
     return apiRequest(`/folders/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
@@ -141,7 +196,7 @@ export const foldersApi = {
   },
 
   // Delete folder
-  delete: async (id: string) => {
+  delete: async (id: string): Promise<{ success: boolean; message: string }> => {
     return apiRequest(`/folders/${id}`, {
       method: 'DELETE',
     });

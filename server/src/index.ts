@@ -4,78 +4,109 @@ import rateLimit from 'express-rate-limit';
 import authRoutes from './routes/auth.js';
 import notesRoutes from './routes/notes.js';
 import { prisma } from './services/database.js';
+import config, { validateConfig } from './config/index.js';
+
+// Validate configuration on startup
+validateConfig();
 
 const app = express();
-const PORT = process.env.PORT || 3001;
 
-// Middleware
+// Middleware - CORS
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000'],
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+
+    // Check if origin is in allowed list
+    if (config.corsOrigins.includes(origin) || config.corsOrigins.includes('*')) {
+      callback(null, true);
+    } else {
+      console.warn(`CORS blocked origin: ${origin}`);
+      callback(null, false);
+    }
+  },
   credentials: true,
 }));
 
 app.use(express.json());
 
 // Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+const createRateLimiter = (max: number) => rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max,
   message: {
     success: false,
     error: 'Too many requests, please try again later.',
   },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
-app.use('/api/', limiter);
+
+// General API rate limiting
+app.use('/api/', createRateLimiter(config.rateLimit.max));
 
 // Stricter rate limiting for auth endpoints
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // limit each IP to 10 requests per windowMs
-  message: {
-    success: false,
-    error: 'Too many authentication attempts, please try again later.',
-  },
-});
+const authLimiter = createRateLimiter(config.rateLimit.authMax);
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
 
 // Routes
-app.use('/api/auth', authRoutes);
-app.use('/api', notesRoutes);
-
 // Health check
-app.get('/api/health', (req, res) => {
+app.get('/api/health', (_req, res) => {
   res.json({
     success: true,
     message: 'NoteFlow API is running',
+    environment: config.nodeEnv,
     timestamp: new Date().toISOString(),
   });
 });
 
+app.use('/api/auth', authRoutes);
+app.use('/api', notesRoutes);
+
+// 404 handler
+app.use((_req, res) => {
+  res.status(404).json({
+    success: false,
+    error: 'Not found',
+  });
+});
+
 // Error handling middleware
-app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('Unhandled error:', err);
+
+  // Don't leak error details in production
+  const message = config.isProd
+    ? 'Internal server error'
+    : err.message || 'Internal server error';
+
   res.status(500).json({
     success: false,
-    error: 'Internal server error',
+    error: message,
   });
 });
 
 // Graceful shutdown
-process.on('SIGINT', async () => {
-  console.log('\nShutting down gracefully...');
+const gracefulShutdown = async () => {
+  console.log('\n🛑 Shutting down gracefully...');
   await prisma.$disconnect();
   process.exit(0);
-});
+};
 
-process.on('SIGTERM', async () => {
-  console.log('\nShutting down gracefully...');
-  await prisma.$disconnect();
-  process.exit(0);
-});
+process.on('SIGINT', gracefulShutdown);
+process.on('SIGTERM', gracefulShutdown);
 
 // Start server
-app.listen(PORT, () => {
-  console.log(`🚀 NoteFlow API server running on http://localhost:${PORT}`);
-  console.log(`📡 Health check: http://localhost:${PORT}/api/health`);
+const server = app.listen(config.port, () => {
+  console.log('========================================');
+  console.log('🚀 NoteFlow API Server Started');
+  console.log('========================================');
+  console.log(`Environment: ${config.nodeEnv}`);
+  console.log(`Server: http://${config.host}:${config.port}`);
+  console.log(`Health: http://${config.host}:${config.port}/api/health`);
+  console.log(`Frontend: ${config.frontendUrl}`);
+  console.log('========================================');
 });
+
+export default server;

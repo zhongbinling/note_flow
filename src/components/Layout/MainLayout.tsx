@@ -1,13 +1,21 @@
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import Resizable from '../common/Resizable';
+import { useAuthStore } from '../../stores/authStore';
 
 interface MainLayoutProps {
   children: ReactNode;
 }
 
 export default function MainLayout({ children }: MainLayoutProps) {
+  const checkAuth = useAuthStore((state) => state.checkAuth);
+
+  useEffect(() => {
+    // Check authentication status on app load
+    checkAuth();
+  }, [checkAuth]);
+
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900 overflow-hidden">
       {/* Sidebar */}

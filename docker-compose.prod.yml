@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  noteflow:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    env_file:
+      - .env.production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: always
+    networks:
+      - noteflow-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  postgres:
+    image: postgres:14-alpine
+    environment:
+      - POSTGRES_USER=noteflow
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-noteflow123}
+      - POSTGRES_DB=noteflow
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./backup:/backup
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U noteflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+    networks:
+      - noteflow-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # 可选：数据库备份服务
+  backup:
+    image: postgres:14-alpine
+    environment:
+      - PGPASSWORD=${DB_PASSWORD:-noteflow123}
+    volumes:
+      - ./backup:/backup
+    entrypoint: |
+      sh -c 'while true; do
+        pg_dump -h postgres -U noteflow noteflow | gzip > /backup/noteflow_$$(date +%Y%m%d_%H%M%S).sql.gz
+        find /backup -name "noteflow_*.sql.gz" -mtime +7 -delete
+        sleep 86400
+      done'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - noteflow-network
+
+volumes:
+  postgres-data:
+
+networks:
+  noteflow-network:
+    driver: bridge

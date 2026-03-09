@@ -5,9 +5,10 @@ import { useAuthStore } from '../../stores/authStore';
 interface RegisterFormProps {
   onClose: () => void;
   onSwitchToLogin: () => void;
+  onSuccess?: () => void;
 }
 
-export default function RegisterForm({ onClose, onSwitchToLogin }: RegisterFormProps) {
+export default function RegisterForm({ onClose, onSwitchToLogin, onSuccess }: RegisterFormProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -32,8 +33,10 @@ export default function RegisterForm({ onClose, onSwitchToLogin }: RegisterFormP
     }
 
     const success = await register(email, password, name || undefined);
+
     if (success) {
       onClose();
+      onSuccess?.();
     }
   };
 

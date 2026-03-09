@@ -1,9 +1,10 @@
 #!/bin/bash
 
 # NoteFlow Linux Deployment Script
-# Usage: ./deploy-linux.sh [DOMAIN] [--ssl]
+# Usage: ./deploy-linux.sh [DOMAIN] [--https]
 # Example: ./deploy-linux.sh 139.196.210.184
-# Example: ./deploy-linux.sh noteflow.example.com --ssl
+# Example: ./deploy-linux.sh 139.196.210.184 --https
+# Example: ./deploy-linux.sh noteflow.example.com --https
 
 set -e
 
@@ -26,11 +27,18 @@ DB_SCHEMA="noteflow"
 
 # Get DOMAIN from argument or environment or default
 DOMAIN="${1:-${DOMAIN:-noteflow.yourdomain.com}}"
-# Skip --ssl flag if present
-[[ "$DOMAIN" == "--ssl" ]] && DOMAIN="noteflow.yourdomain.com"
+# Skip flags if present
+[[ "$DOMAIN" == "--https" ]] && DOMAIN="noteflow.yourdomain.com"
 ADMIN_EMAIL="${ADMIN_EMAIL:-admin@example.com}"
 
+# Check for HTTPS flag
+ENABLE_HTTPS=false
+if [[ "$*" == *"--https"* ]]; then
+  ENABLE_HTTPS=true
+fi
+
 echo -e "${GREEN}Domain/IP: ${DOMAIN}${NC}"
+echo -e "${GREEN}HTTPS: ${ENABLE_HTTPS}${NC}"
 
 # Check if running as root
 if [ "$EUID" -ne 0 ]; then
@@ -39,16 +47,16 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 # Step 1: Install dependencies
-echo -e "${GREEN}[1/9] Installing dependencies...${NC}"
+echo -e "${GREEN}[1/10] Installing dependencies...${NC}"
 
 # Check OS
 if [ -f /etc/debian_version ]; then
   # Debian/Ubuntu
   apt-get update
-  apt-get install -y curl git nginx certbot python3-certbot-nginx
+  apt-get install -y curl git nginx certbot python3-certbot-nginx openssl
 elif [ -f /etc/redhat-release ]; then
   # CentOS/RHEL
-  yum install -y curl git nginx certbot python3-certbot-nginx
+  yum install -y curl git nginx certbot python3-certbot-nginx openssl
 else
   echo -e "${RED}Unsupported OS. Please install Node.js, PostgreSQL, Nginx manually.${NC}"
   exit 1
@@ -84,7 +92,7 @@ fi
 echo -e "${GREEN}✓ Dependencies installed${NC}"
 
 # Step 2: Create database and schema with proper permissions
-echo -e "${GREEN}[2/9] Setting up PostgreSQL database...${NC}"
+echo -e "${GREEN}[2/10] Setting up PostgreSQL database...${NC}"
 
 # Create database
 sudo -u postgres psql -c "CREATE DATABASE ${DB_NAME};" 2>/dev/null || echo "Database already exists"
@@ -107,7 +115,7 @@ sudo -u postgres psql -d ${DB_NAME} -c "ALTER DEFAULT PRIVILEGES IN SCHEMA ${DB_
 echo -e "${GREEN}✓ Database configured${NC}"
 
 # Step 3: Clone application
-echo -e "${GREEN}[3/9] Cloning application...${NC}"
+echo -e "${GREEN}[3/10] Cloning application...${NC}"
 mkdir -p $APP_DIR
 cd $APP_DIR
 
@@ -122,20 +130,20 @@ fi
 echo -e "${GREEN}✓ Application cloned${NC}"
 
 # Step 4: Install dependencies
-echo -e "${GREEN}[4/9] Installing npm dependencies...${NC}"
+echo -e "${GREEN}[4/10] Installing npm dependencies...${NC}"
 npm install
 cd server && npm install && cd ..
 
 echo -e "${GREEN}✓ Dependencies installed${NC}"
 
 # Step 5: Configure environment
-echo -e "${GREEN}[5/9] Configuring environment...${NC}"
+echo -e "${GREEN}[5/10] Configuring environment...${NC}"
 
 # Generate JWT secret
 JWT_SECRET=$(node -e "console.log(require('crypto').randomBytes(64).toString('hex'))")
 
-# Determine protocol based on SSL
-if [[ "$*" == *"--ssl"* ]]; then
+# Determine protocol based on HTTPS
+if [ "$ENABLE_HTTPS" = true ]; then
   PROTOCOL="https"
 else
   PROTOCOL="http"
@@ -173,7 +181,7 @@ echo -e "${GREEN}✓ Environment configured${NC}"
 echo -e "${YELLOW}Note: Please update SMTP settings in server/.env if you need email functionality${NC}"
 
 # Step 6: Generate Prisma Client
-echo -e "${GREEN}[6/9] Generating Prisma Client...${NC}"
+echo -e "${GREEN}[6/10] Generating Prisma Client...${NC}"
 cd server
 npx prisma generate
 cd ..
@@ -181,7 +189,7 @@ cd ..
 echo -e "${GREEN}✓ Prisma Client generated${NC}"
 
 # Step 7: Initialize database schema
-echo -e "${GREEN}[7/9] Initializing database schema...${NC}"
+echo -e "${GREEN}[7/10] Initializing database schema...${NC}"
 cd server
 npx prisma db push --accept-data-loss
 cd ..
@@ -189,14 +197,14 @@ cd ..
 echo -e "${GREEN}✓ Database schema initialized${NC}"
 
 # Step 8: Build application
-echo -e "${GREEN}[8/9] Building application...${NC}"
+echo -e "${GREEN}[8/10] Building application...${NC}"
 npm run build
 cd server && npm run build && cd ..
 
 echo -e "${GREEN}✓ Application built${NC}"
 
 # Step 9: Configure PM2
-echo -e "${GREEN}[9/9] Configuring PM2...${NC}"
+echo -e "${GREEN}[9/10] Configuring PM2...${NC}"
 
 # Use .cjs extension to avoid ES module conflicts
 cat > ecosystem.config.cjs << 'EOFPM2'
@@ -233,21 +241,71 @@ pm2 startup | tail -1 | bash || true
 
 echo -e "${GREEN}✓ PM2 configured${NC}"
 
-# Configure Nginx
-echo -e "${GREEN}Configuring Nginx...${NC}"
+# Step 10: Configure Nginx
+echo -e "${GREEN}[10/10] Configuring Nginx...${NC}"
 
-cat > /etc/nginx/sites-available/noteflow << EOF
+# Configure based on HTTPS setting
+if [ "$ENABLE_HTTPS" = true ]; then
+  # Check if DOMAIN is an IP address (for self-signed cert) or domain name (for Let's Encrypt)
+  if [[ $DOMAIN =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    echo -e "${GREEN}Setting up self-signed SSL certificate for IP address...${NC}"
+
+    # Generate self-signed certificate
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+      -keyout /etc/ssl/private/noteflow.key \
+      -out /etc/ssl/certs/noteflow.crt \
+      -subj "/CN=${DOMAIN}" 2>/dev/null
+
+    chmod 600 /etc/ssl/private/noteflow.key
+
+    # Nginx HTTPS config with self-signed cert
+    cat > /etc/nginx/sites-available/noteflow << EOF
+# HTTP redirect to HTTPS
 server {
     listen 80;
     server_name ${DOMAIN};
+
+    # Let's Encrypt verification path
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+
+    # Redirect all other requests to HTTPS
+    location / {
+        return 301 https://\$host\$request_uri;
+    }
+}
+
+# HTTPS server
+server {
+    listen 443 ssl http2;
+    server_name ${DOMAIN};
+
+    # SSL certificates
+    ssl_certificate /etc/ssl/certs/noteflow.crt;
+    ssl_certificate_key /etc/ssl/private/noteflow.key;
+
+    # SSL security settings
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:SSL:10m;
 
     # Frontend static files
     root ${APP_DIR}/dist;
     index index.html;
 
-    # Gzip
+    # Gzip compression
     gzip on;
     gzip_types text/plain text/css application/json application/javascript text/xml application/xml;
+
+    # Static assets with cache
+    location /assets/ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        try_files \$uri =404;
+    }
 
     # API proxy
     location /api {
@@ -266,16 +324,105 @@ server {
 
     # SPA routing
     location / {
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
         try_files \$uri \$uri/ /index.html;
-    }
-
-    # Static cache
-    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2)$ {
-        expires 1y;
-        add_header Cache-Control "public, immutable";
     }
 }
 EOF
+    echo -e "${GREEN}✓ Self-signed SSL certificate configured${NC}"
+
+  else
+    echo -e "${GREEN}Setting up Let's Encrypt SSL for domain...${NC}"
+
+    # First setup HTTP for Let's Encrypt verification
+    cat > /etc/nginx/sites-available/noteflow << EOF
+server {
+    listen 80;
+    server_name ${DOMAIN};
+
+    root ${APP_DIR}/dist;
+    index index.html;
+
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml;
+
+    location /api {
+        proxy_pass http://localhost:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_cache_bypass \$http_upgrade;
+    }
+
+    location / {
+        try_files \$uri \$uri/ /index.html;
+    }
+}
+EOF
+
+    # Enable site first for Let's Encrypt
+    ln -sf /etc/nginx/sites-available/noteflow /etc/nginx/sites-enabled/
+    rm -f /etc/nginx/sites-enabled/default
+    nginx -t && systemctl reload nginx
+
+    # Get Let's Encrypt certificate
+    echo -e "${GREEN}Requesting Let's Encrypt certificate...${NC}"
+    certbot --nginx -d ${DOMAIN} --non-interactive --agree-tos -m ${ADMIN_EMAIL} || {
+      echo -e "${YELLOW}Let's Encrypt failed. Falling back to HTTP.${NC}"
+      ENABLE_HTTPS=false
+    }
+
+    echo -e "${GREEN}✓ Let's Encrypt SSL configured${NC}"
+  fi
+fi
+
+# HTTP only configuration
+if [ "$ENABLE_HTTPS" = false ]; then
+  cat > /etc/nginx/sites-available/noteflow << EOF
+server {
+    listen 80;
+    server_name ${DOMAIN};
+
+    root ${APP_DIR}/dist;
+    index index.html;
+
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml;
+
+    # Static assets with cache
+    location /assets/ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        try_files \$uri =404;
+    }
+
+    # API proxy
+    location /api {
+        proxy_pass http://localhost:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_cache_bypass \$http_upgrade;
+        proxy_read_timeout 300s;
+        proxy_connect_timeout 75s;
+    }
+
+    # SPA routing
+    location / {
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+        try_files \$uri \$uri/ /index.html;
+    }
+}
+EOF
+fi
 
 # Enable site
 ln -sf /etc/nginx/sites-available/noteflow /etc/nginx/sites-enabled/
@@ -287,11 +434,16 @@ systemctl enable nginx
 
 echo -e "${GREEN}✓ Nginx configured${NC}"
 
-# Setup SSL with Let's Encrypt (optional)
-if [[ "$*" == *"--ssl"* ]]; then
-  echo -e "${GREEN}Setting up SSL certificate...${NC}"
-  certbot --nginx -d ${DOMAIN} --non-interactive --agree-tos -m ${ADMIN_EMAIL}
-  echo -e "${GREEN}✓ SSL configured${NC}"
+# Configure firewall
+echo -e "${GREEN}Configuring firewall...${NC}"
+if command -v ufw &> /dev/null; then
+  ufw allow 80/tcp 2>/dev/null || true
+  ufw allow 443/tcp 2>/dev/null || true
+  ufw allow 22/tcp 2>/dev/null || true
+elif command -v firewall-cmd &> /dev/null; then
+  firewall-cmd --permanent --add-port=80/tcp 2>/dev/null || true
+  firewall-cmd --permanent --add-port=443/tcp 2>/dev/null || true
+  firewall-cmd --reload 2>/dev/null || true
 fi
 
 # Verify deployment
@@ -304,10 +456,18 @@ else
   echo -e "${YELLOW}⚠ Backend API health check failed. Check logs: pm2 logs noteflow-server${NC}"
 fi
 
-if curl -s http://localhost/api/health > /dev/null; then
-  echo -e "${GREEN}✓ Nginx proxy is working${NC}"
+if [ "$ENABLE_HTTPS" = true ]; then
+  if curl -sk https://localhost/api/health > /dev/null; then
+    echo -e "${GREEN}✓ HTTPS Nginx proxy is working${NC}"
+  else
+    echo -e "${YELLOW}⚠ HTTPS proxy check failed.${NC}"
+  fi
 else
-  echo -e "${YELLOW}⚠ Nginx proxy check failed. Check Nginx configuration.${NC}"
+  if curl -s http://localhost/api/health > /dev/null; then
+    echo -e "${GREEN}✓ HTTP Nginx proxy is working${NC}"
+  else
+    echo -e "${YELLOW}⚠ HTTP proxy check failed.${NC}"
+  fi
 fi
 
 # Summary
@@ -316,9 +476,33 @@ echo "========================================"
 echo -e "${GREEN}  Deployment Complete!${NC}"
 echo "========================================"
 echo ""
-echo "Application URL: http://${DOMAIN}"
-echo "API URL: http://${DOMAIN}/api"
-echo "Health Check: http://${DOMAIN}/api/health"
+
+if [ "$ENABLE_HTTPS" = true ]; then
+  echo "Application URL: https://${DOMAIN}"
+  echo "API URL: https://${DOMAIN}/api"
+  echo "Health Check: https://${DOMAIN}/api/health"
+  echo ""
+  if [[ $DOMAIN =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    echo -e "${YELLOW}Note: Using self-signed certificate. Browser will show security warning.${NC}"
+    echo -e "${YELLOW}Click 'Advanced' -> 'Proceed to site' to continue.${NC}"
+    echo ""
+    echo "To renew self-signed certificate (expires in 1 year):"
+    echo "  openssl req -x509 -nodes -days 365 -newkey rsa:2049 \\"
+    echo "    -keyout /etc/ssl/private/noteflow.key \\"
+    echo "    -out /etc/ssl/certs/noteflow.crt \\"
+    echo "    -subj '/CN=${DOMAIN}' && systemctl reload nginx"
+  else
+    echo "SSL Certificate: Let's Encrypt (auto-renewal enabled)"
+  fi
+else
+  echo "Application URL: http://${DOMAIN}"
+  echo "API URL: http://${DOMAIN}/api"
+  echo "Health Check: http://${DOMAIN}/api/health"
+  echo ""
+  echo "To enable HTTPS, run:"
+  echo "  ./deploy-linux.sh ${DOMAIN} --https"
+fi
+
 echo ""
 echo "Database Info:"
 echo "  Database: ${DB_NAME}"
@@ -326,10 +510,9 @@ echo "  Schema: ${DB_SCHEMA}"
 echo "  User: ${DB_USER}"
 echo ""
 echo "Useful commands:"
-echo "  pm2 status              - Check application status"
-echo "  pm2 logs                - View logs"
-echo "  pm2 restart all         - Restart application"
-echo "  pm2 logs noteflow-server --lines 100  - View last 100 lines"
-echo ""
-echo "To enable HTTPS, run: sudo certbot --nginx -d ${DOMAIN}"
+echo "  pm2 status                          - Check application status"
+echo "  pm2 logs                            - View logs"
+echo "  pm2 restart noteflow-server         - Restart application"
+echo "  pm2 logs noteflow-server --lines 100 - View last 100 lines"
+echo "  nginx -t && systemctl reload nginx  - Reload Nginx config"
 echo ""

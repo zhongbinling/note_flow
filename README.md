@@ -10,11 +10,11 @@
   <img src="https://img.shields.io/badge/Vite-7.3.1-646CFF?logo=vite" alt="Vite">
   <img src="https://img.shields.io/badge/TailwindCSS-3.4.19-06B6D4?logo=tailwindcss" alt="TailwindCSS">
   <img src="https://img.shields.io/badge/License-MIT-green" alt="License">
-  <a href="https://zhongbinling.github.io/note_flow/"><img src="https://img.shields.io/badge/Demo-Live-brightgreen" alt="Live Demo"></a>
+  <a href="https://139.196.210.184"><img src="https://img.shields.io/badge/Demo-Live-brightgreen" alt="Live Demo"></a>
 </p>
 
 <p align="center">
-  <a href="https://zhongbinling.github.io/note_flow/">🎮 Online Demo</a>
+  <a href="https://139.196.210.184">🎮 Online Demo</a>
 </p>
 
 <p align="center">

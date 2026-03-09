@@ -140,7 +140,7 @@ GitHub Actions automatically deploys to GitHub Pages when:
 - Code is pushed to `main` branch
 - Workflow is manually triggered
 
-**Live Demo**: https://zhongbinling.github.io/note_flow/
+**Live Demo**: https://139.196.210.184
 
 ### Manual Deployment
 

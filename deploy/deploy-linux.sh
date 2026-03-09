@@ -198,7 +198,8 @@ echo -e "${GREEN}✓ Application built${NC}"
 # Step 9: Configure PM2
 echo -e "${GREEN}[9/9] Configuring PM2...${NC}"
 
-cat > ecosystem.config.js << EOF
+# Use .cjs extension to avoid ES module conflicts
+cat > ecosystem.config.cjs << 'EOFPM2'
 module.exports = {
   apps: [{
     name: 'noteflow-server',
@@ -218,13 +219,13 @@ module.exports = {
     time: true
   }]
 };
-EOF
+EOFPM2
 
 mkdir -p logs
 
 # Start with PM2
 pm2 delete noteflow-server 2>/dev/null || true
-pm2 start ecosystem.config.js
+pm2 start ecosystem.config.cjs
 pm2 save
 
 # Setup PM2 startup

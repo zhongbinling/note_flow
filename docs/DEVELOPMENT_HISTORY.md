@@ -957,3 +957,602 @@ npm run test:e2e:report # 查看报告
 ---
 
 *文档导出时间: 2026-02-23*
+
+---
+
+## 账号系统与云端同步开发（2026-03-08 ~ 2026-03-10）
+
+### 概述
+
+在 MVP 基础上新增了完整的用户认证系统和云端同步功能，支持用户注册、登录、密码重置，以及笔记数据的云端存储和跨设备同步。
+
+### 产品定位更新
+
+| 项目 | 原决策 | 新决策 |
+|------|--------|--------|
+| 云端同步 | 不需要 | **支持**（用户可选） |
+| 数据策略 | 本地优先 | 本地 + 云端双存储 |
+
+### 技术架构扩展
+
+```
+后端新增：
+- 运行时：Node.js
+- 框架：Express.js
+- 数据库：SQLite（开发）/ PostgreSQL（生产）
+- ORM：Prisma
+- 认证：JWT
+- 邮件：Nodemailer
+```
+
+---
+
+### 后端开发
+
+#### 1. 项目结构
+
+```
+server/
+├── src/
+│   ├── config/
+│   │   └── index.ts          # 集中配置管理
+│   ├── middleware/
+│   │   └── auth.ts           # JWT 认证中间件
+│   ├── routes/
+│   │   ├── auth.ts           # 认证路由
+│   │   └── notes.ts          # 笔记路由
+│   ├── services/
+│   │   ├── auth.ts           # 认证服务
+│   │   ├── database.ts       # 数据库服务
+│   │   ├── email.ts          # 邮件服务
+│   │   └── notes.ts          # 笔记服务
+│   └── index.ts              # 入口文件
+├── prisma/
+│   └── schema.prisma         # 数据库模型
+└── package.json
+```
+
+#### 2. 数据库模型
+
+**Prisma Schema**:
+
+```prisma
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String?
+  avatar    String?
+  notes     Note[]
+  folders   Folder[]
+  passwordResetTokens PasswordResetToken[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  folderId  String?
+  folder    Folder?  @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  title     String
+  content   String   @db.Text
+  tags      String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([folderId])
+}
+
+model Folder {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parentId  String?
+  parent    Folder?  @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children  Folder[] @relation("FolderHierarchy")
+  notes     Note[]
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([parentId])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([token])
+}
+```
+
+#### 3. 认证服务
+
+**核心功能**：
+- 用户注册（密码 bcrypt 加密）
+- 用户登录（JWT Token 签发）
+- 密码修改
+- 密码重置（Token 生成与验证）
+
+```typescript
+// 密码加密
+const hashedPassword = await bcrypt.hash(password, 10);
+
+// Token 签发
+const token = jwt.sign({ userId }, config.jwt.secret, {
+  expiresIn: config.jwt.expiresIn,
+});
+
+// 密码重置 Token
+const resetToken = crypto.randomBytes(32).toString('hex');
+const hashedToken = crypto
+  .createHash('sha256')
+  .update(resetToken)
+  .digest('hex');
+```
+
+#### 4. 邮件服务
+
+**开发模式**：邮件内容输出到控制台，无需配置 SMTP
+
+```typescript
+if (!config) {
+  // Development mode: log email to console
+  console.log('\n========================================');
+  console.log('📧 [DEV MODE] Password Reset Email');
+  console.log('========================================');
+  console.log(`To: ${email}`);
+  console.log(`Reset URL: ${resetUrl}`);
+  console.log('========================================\n');
+  return true;
+}
+```
+
+**生产模式**：支持 SMTP 配置发送真实邮件
+
+#### 5. API 路由
+
+| 方法 | 路径 | 描述 |
+|------|------|------|
+| POST | /api/auth/register | 注册新用户 |
+| POST | /api/auth/login | 用户登录 |
+| GET | /api/auth/me | 获取当前用户 |
+| POST | /api/auth/change-password | 修改密码 |
+| POST | /api/auth/forgot-password | 请求密码重置 |
+| GET | /api/auth/verify-reset-token/:token | 验证重置 Token |
+| POST | /api/auth/reset-password | 重置密码 |
+| POST | /api/auth/logout | 登出 |
+| GET | /api/notes | 获取笔记列表 |
+| POST | /api/notes | 创建笔记 |
+| PUT | /api/notes/:id | 更新笔记 |
+| DELETE | /api/notes/:id | 删除笔记 |
+| GET | /api/folders | 获取文件夹列表 |
+| POST | /api/folders | 创建文件夹 |
+| PUT | /api/folders/:id | 更新文件夹 |
+| DELETE | /api/folders/:id | 删除文件夹 |
+| GET | /api/sync/pull | 拉取同步数据 |
+| POST | /api/sync/push | 推送同步数据 |
+
+#### 6. 集中配置管理
+
+```typescript
+// server/src/config/index.ts
+export const config = {
+  port: parseInt(process.env.PORT || '3001', 10),
+  host: process.env.HOST || 'localhost',
+  nodeEnv: process.env.NODE_ENV || 'development',
+  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
+  corsOrigins: (process.env.CORS_ORIGINS || '').split(',').map(origin => origin.trim()),
+  jwt: {
+    secret: process.env.JWT_SECRET || 'default-secret',
+    expiresIn: process.env.JWT_EXPIRES_IN || '7d',
+  },
+  rateLimit: {
+    max: parseInt(process.env.RATE_LIMIT_MAX || '100', 10),
+    authMax: parseInt(process.env.AUTH_RATE_LIMIT_MAX || '10', 10),
+  },
+  email: { ... },
+  resetTokenExpiry: parseInt(process.env.RESET_TOKEN_EXPIRY || '3600000', 10),
+} as const;
+```
+
+---
+
+### 前端开发
+
+#### 1. 认证状态管理
+
+**Zustand Store** with persist middleware：
+
+```typescript
+// src/stores/authStore.ts
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set, get) => ({
+      user: null,
+      token: null,
+      isAuthenticated: false,
+      isLoading: false,
+      error: null,
+
+      login: async (email, password) => { ... },
+      register: async (email, password, name) => { ... },
+      logout: () => { ... },
+      checkAuth: async () => { ... },
+    }),
+    {
+      name: 'noteflow-auth',
+      partialize: (state) => ({
+        token: state.token,
+        isAuthenticated: state.isAuthenticated,
+        user: state.user,
+      }),
+    }
+  )
+);
+```
+
+#### 2. 认证组件
+
+| 组件 | 功能 |
+|------|------|
+| `LandingPage.tsx` | 首页，显示登录/注册入口 |
+| `InlineLoginForm.tsx` | 内联登录表单 |
+| `InlineAuthForms.tsx` | 内联认证表单（登录/注册切换） |
+| `RegisterForm.tsx` | 注册表单 |
+| `SettingsModal.tsx` | 设置模态框（修改密码） |
+| `ResetPasswordPage.tsx` | 密码重置页面 |
+
+#### 3. API 服务层
+
+```typescript
+// src/services/api.ts
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+
+// Helper function for API calls
+async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const token = localStorage.getItem('token');
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options.headers,
+    },
+  });
+  // ...
+}
+
+export const authApi = { ... };
+export const notesApi = { ... };
+export const foldersApi = { ... };
+export const syncApi = { ... };
+```
+
+#### 4. 路由配置
+
+```typescript
+// src/App.tsx
+<Routes>
+  <Route path="/reset-password" element={<ResetPasswordPage />} />
+  <Route path="/*" element={
+    <AuthenticatedRoute>
+      <MainApp />
+    </AuthenticatedRoute>
+  } />
+</Routes>
+```
+
+#### 5. 同步机制
+
+**Pull**：从服务器获取最新数据
+
+```typescript
+pull: async () => {
+  return apiRequest('/sync/pull');
+}
+```
+
+**Push**：将本地更改推送到服务器
+
+```typescript
+push: async (data: { folders?: [...], notes?: [...] }) => {
+  return apiRequest('/sync/push', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+```
+
+---
+
+### 问题修复记录
+
+#### 1. JWT TypeScript 类型错误
+
+**问题**：`jwt.sign` 的 `expiresIn` 类型不匹配
+
+**解决方案**：显式类型声明
+
+```typescript
+const options: jwt.SignOptions = { expiresIn: config.jwt.expiresIn };
+return jwt.sign({ userId }, config.jwt.secret, options);
+```
+
+#### 2. 速率限制阻止所有请求
+
+**问题**：开发环境频繁测试导致触发速率限制
+
+**解决方案**：增加开发环境限制值，通过环境变量配置
+
+```env
+RATE_LIMIT_MAX=10000
+AUTH_RATE_LIMIT_MAX=10000
+```
+
+#### 3. CORS 阻止跨域请求
+
+**问题**：前端端口 5177 未在 CORS 白名单
+
+**解决方案**：更新 `CORS_ORIGINS` 环境变量
+
+```env
+CORS_ORIGINS=http://localhost:5173,http://localhost:5174,http://localhost:5177
+```
+
+#### 4. 登录后状态闪烁
+
+**问题**：`checkAuth` 在已认证时仍重新验证，导致 UI 闪烁
+
+**解决方案**：跳过已认证用户的重复验证
+
+```typescript
+checkAuth: async () => {
+  const state = get();
+  if (state.isAuthenticated && state.user) {
+    return; // 已认证，跳过
+  }
+  // ...
+}
+```
+
+---
+
+### 部署配置
+
+#### 1. Docker 支持
+
+**Dockerfile**（多阶段构建）：
+```dockerfile
+# Stage 1: Build frontend
+FROM node:20-alpine AS frontend-builder
+# ...
+
+# Stage 2: Build backend
+FROM node:20-alpine AS backend-builder
+# ...
+
+# Stage 3: Production image
+FROM node:20-alpine
+# ...
+```
+
+**docker-compose.yml**：
+```yaml
+services:
+  noteflow:
+    build: .
+    ports: ["80:80"]
+    environment:
+      - DATABASE_URL=postgresql://...
+  postgres:
+    image: postgres:14-alpine
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+```
+
+#### 2. 云平台配置
+
+| 平台 | 配置文件 | 特点 |
+|------|----------|------|
+| Render | `render.yaml` | 免费层，自动 HTTPS |
+| Railway | `railway.toml` | $5/月免费额度 |
+| Vercel | `vercel.json` | Serverless Functions |
+
+#### 3. GitHub Actions CI
+
+```yaml
+# .github/workflows/ci.yml
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+      - run: npm ci && npm run lint
+
+  build:
+    needs: lint
+    steps:
+      - run: npm run build
+
+  test:
+    needs: lint
+    steps:
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+```
+
+---
+
+### 环境变量清单
+
+#### 后端 (`server/.env`)
+
+| 变量 | 必需 | 说明 |
+|------|------|------|
+| `PORT` | 否 | 服务器端口（默认 3001） |
+| `NODE_ENV` | 否 | 环境（development/production） |
+| `DATABASE_URL` | 是 | 数据库连接字符串 |
+| `JWT_SECRET` | **是** | JWT 签名密钥（生产必须修改） |
+| `FRONTEND_URL` | 是 | 前端访问地址 |
+| `CORS_ORIGINS` | 否 | 允许的跨域来源 |
+| `SMTP_*` | 否 | 邮件服务配置 |
+
+#### 前端 (`.env`)
+
+| 变量 | 说明 |
+|------|------|
+| `VITE_API_URL` | API 地址 |
+| `VITE_APP_URL` | 应用地址 |
+
+---
+
+### 已实现功能清单（更新）
+
+#### 账号系统
+- [x] 用户注册
+- [x] 用户登录
+- [x] JWT 认证
+- [x] 密码修改
+- [x] 忘记密码
+- [x] 邮件重置密码
+- [x] 自动登录（Token 持久化）
+- [x] 登出功能
+
+#### 云端同步
+- [x] 笔记云端存储
+- [x] 文件夹云端存储
+- [x] 数据同步（Pull/Push）
+- [x] 离线支持（本地优先）
+- [x] 冲突处理
+
+#### 部署支持
+- [x] Docker 容器化
+- [x] docker-compose 编排
+- [x] Render 一键部署
+- [x] Railway 部署配置
+- [x] Vercel 部署配置
+- [x] GitHub Actions CI/CD
+
+#### 文档
+- [x] 部署指南（Windows/Linux/macOS/Docker）
+- [x] API 参考文档
+- [x] 配置参考文档
+- [x] 中英双语支持
+
+---
+
+### 文件清单（更新）
+
+#### 后端新增
+- `server/src/config/index.ts` - 集中配置
+- `server/src/middleware/auth.ts` - 认证中间件
+- `server/src/routes/auth.ts` - 认证路由
+- `server/src/routes/notes.ts` - 笔记路由
+- `server/src/services/auth.ts` - 认证服务
+- `server/src/services/email.ts` - 邮件服务
+- `server/src/services/notes.ts` - 笔记服务
+- `server/prisma/schema.prisma` - 数据库模型
+
+#### 前端新增
+- `src/stores/authStore.ts` - 认证状态
+- `src/services/api.ts` - API 服务
+- `src/components/Auth/` - 认证组件
+- `src/components/Settings/SettingsModal.tsx` - 设置模态框
+- `src/pages/ResetPasswordPage.tsx` - 密码重置页
+
+#### 部署配置
+- `Dockerfile` - Docker 镜像
+- `docker-compose.yml` - 开发环境编排
+- `docker-compose.prod.yml` - 生产环境编排
+- `docker/nginx.conf` - Nginx 配置
+- `docker/start.sh` - 启动脚本
+- `vercel.json` - Vercel 配置
+- `render.yaml` - Render 配置
+- `railway.toml` - Railway 配置
+- `.github/workflows/ci.yml` - CI 工作流
+
+#### 文档
+- `docs/DEPLOYMENT_GUIDE.md` / `_CN.md` - 快速部署指南
+- `docs/DEPLOYMENT_WINDOWS.md` / `_CN.md` - Windows 部署
+- `docs/DEPLOYMENT_LINUX.md` / `_CN.md` - Linux 部署
+- `docs/DEPLOYMENT_MACOS.md` / `_CN.md` - macOS 部署
+- `docs/DEPLOYMENT_DOCKER.md` / `_CN.md` - Docker 部署
+- `docs/CONFIGURATION.md` / `_CN.md` - 配置参考
+- `docs/API_REFERENCE.md` / `_CN.md` - API 参考
+
+---
+
+### 技术栈总结（更新）
+
+### 前端技术
+
+| 类别 | 技术 | 版本 |
+|------|------|------|
+| 框架 | React | 19.2.0 |
+| 语言 | TypeScript | 5.9.3 |
+| 构建工具 | Vite | 7.3.1 |
+| 样式 | Tailwind CSS | 3.4.19 |
+| 状态管理 | Zustand | 5.0.11 |
+| 路由 | React Router | 7.13.1 |
+| 编辑器 | CodeMirror | 4.25.4 |
+| Markdown 解析 | marked | 17.0.3 |
+| HTML 转 Markdown | TurndownService | 7.2.0 |
+| 图标 | Lucide React | 0.574.0 |
+
+### 后端技术
+
+| 类别 | 技术 | 版本 |
+|------|------|------|
+| 运行时 | Node.js | 20.x |
+| 框架 | Express.js | 4.x |
+| 数据库 | SQLite / PostgreSQL | - |
+| ORM | Prisma | 6.x |
+| 认证 | JWT (jsonwebtoken) | 9.x |
+| 密码加密 | bcrypt | 6.x |
+| 邮件 | Nodemailer | 6.x |
+| 验证 | Zod | 3.x |
+
+### 部署技术
+
+| 类别 | 技术 |
+|------|------|
+| 容器化 | Docker |
+| 编排 | Docker Compose |
+| 反向代理 | Nginx |
+| CI/CD | GitHub Actions |
+
+---
+
+### 待实现功能（更新）
+
+### Phase 2
+- [ ] 双向链接 `[[笔记名]]`
+- [ ] 反向链接面板
+- [ ] 标签系统
+- [ ] 知识图谱
+
+### Phase 3
+- [ ] AI 写作助手
+- [ ] API Key 配置
+- [ ] 多模型切换
+
+### Phase 4
+- [ ] Electron 桌面端
+- [ ] 本地文件系统直接读写
+- [ ] 插件系统
+
+---
+
+*文档更新时间: 2026-03-10*

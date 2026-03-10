@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Eye, Edit3, Columns, MoreVertical, Moon, Sun, LogOut, User, RefreshCw } from 'lucide-react';
+import { Search, Eye, Edit3, Columns, MoreVertical, Moon, Sun, LogOut, RefreshCw } from 'lucide-react';
 import { useThemeStore } from '../../store/themeStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useNoteStore } from '../../store/noteStore';
@@ -14,10 +14,13 @@ export default function MobileHeader() {
   const [showMenu, setShowMenu] = useState(false);
   const [editorMode, setEditorMode] = useState<EditorMode>('edit');
 
-  const { isDarkMode, toggleDarkMode } = useThemeStore();
+  const { isDark, toggleTheme } = useThemeStore();
   const { user, logout } = useAuthStore();
-  const { activeNote, syncStatus } = useNoteStore();
+  const getActiveNote = useNoteStore((state) => state.getActiveNote);
+  const isSyncing = useNoteStore((state) => state.isSyncing);
   const { openSearch } = useMobileUIStore();
+
+  const activeNote = getActiveNote();
 
   const handleLogout = async () => {
     setShowMenu(false);
@@ -59,7 +62,7 @@ export default function MobileHeader() {
           <h1 className="text-sm font-medium text-gray-900 dark:text-white truncate">
             {activeNote?.title || 'NoteFlow'}
           </h1>
-          {syncStatus === 'syncing' && (
+          {isSyncing && (
             <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center justify-center gap-1">
               <RefreshCw className="w-3 h-3 animate-spin" />
               Syncing...
@@ -113,12 +116,12 @@ export default function MobileHeader() {
                   {/* Menu items */}
                   <button
                     onClick={() => {
-                      toggleDarkMode();
+                      toggleTheme();
                       setShowMenu(false);
                     }}
                     className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                   >
-                    {isDarkMode ? (
+                    {isDark ? (
                       <>
                         <Sun className="w-4 h-4" />
                         Light Mode

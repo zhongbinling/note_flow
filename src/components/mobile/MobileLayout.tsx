@@ -1,4 +1,3 @@
-import { useBreakpoint } from '../../hooks/useBreakpoint';
 import { useMobileUIStore } from '../../stores/mobileUIStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useThemeStore } from '../../store/themeStore';
@@ -9,7 +8,7 @@ import Drawer from '../common/Drawer';
 import Sidebar from '../Layout/Sidebar';
 import NoteList from '../NoteList';
 import Outline from '../Editor/Outline';
-import { Moon, Sun, LogOut, User, RefreshCw } from 'lucide-react';
+import { LogOut, User } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 interface MobileLayoutProps {
@@ -23,7 +22,7 @@ interface MobileLayoutProps {
 export default function MobileLayout({ children }: MobileLayoutProps) {
   const { activePanel, isPanelOpen, closePanel } = useMobileUIStore();
   const { logout, user } = useAuthStore();
-  const { isDarkMode, toggleDarkMode } = useThemeStore();
+  const { isDark, toggleTheme } = useThemeStore();
 
   return (
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 overflow-hidden">
@@ -100,18 +99,18 @@ export default function MobileLayout({ children }: MobileLayoutProps) {
 
           {/* Dark Mode Toggle */}
           <button
-            onClick={toggleDarkMode}
+            onClick={toggleTheme}
             className="w-full flex items-center justify-between p-3 bg-gray-100 dark:bg-gray-700 rounded-lg"
           >
             <span className="text-sm font-medium text-gray-900 dark:text-white">
               Dark Mode
             </span>
             <div className={`w-11 h-6 rounded-full transition-colors ${
-              isDarkMode ? 'bg-primary-500' : 'bg-gray-300'
+              isDark ? 'bg-primary-500' : 'bg-gray-300'
             }`}>
               <div
                 className={`w-5 h-5 rounded-full bg-white shadow transform transition-transform ${
-                  isDarkMode ? 'translate-x-5' : 'translate-x-0.5'
+                  isDark ? 'translate-x-5' : 'translate-x-0.5'
                 } mt-0.5`}
               />
             </div>

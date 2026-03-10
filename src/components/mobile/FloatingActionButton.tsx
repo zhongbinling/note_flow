@@ -9,17 +9,10 @@ import { useMobileUIStore } from '../../stores/mobileUIStore';
 export default function FloatingActionButton() {
   const { isFabVisible, isPanelOpen } = useMobileUIStore();
   const createNote = useNoteStore((state) => state.createNote);
-  const setActiveNoteId = useNoteStore((state) => state.setActiveNoteId);
 
   const handleCreateNote = async () => {
     try {
-      const note = await createNote({
-        title: 'Untitled',
-        content: '',
-      });
-      if (note) {
-        setActiveNoteId(note.id);
-      }
+      createNote('General');
     } catch (error) {
       console.error('Failed to create note:', error);
     }

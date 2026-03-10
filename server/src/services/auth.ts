@@ -35,7 +35,7 @@ export async function comparePassword(password: string, hashedPassword: string):
 
 // Generate JWT token
 export function generateToken(userId: string): string {
-  const options: jwt.SignOptions = { expiresIn: config.jwt.expiresIn };
+  const options: jwt.SignOptions = { expiresIn: config.jwt.expiresIn as string };
   return jwt.sign({ userId }, config.jwt.secret, options);
 }
 

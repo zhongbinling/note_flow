@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import { useAuthStore } from '../../stores/authStore';
 import { InlineLoginForm, InlineRegisterForm, InlineForgotPasswordForm } from './InlineAuthForms';
+import { useBreakpoint } from '../../hooks/useBreakpoint';
+import { NotebookText } from 'lucide-react';
 
 export default function LandingPage() {
   const [view, setView] = useState<'login' | 'register' | 'forgot-password'>('login');
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const { isMobile } = useBreakpoint();
 
   if (isAuthenticated) {
     return null;
@@ -23,6 +26,69 @@ export default function LandingPage() {
     }
   };
 
+  // Mobile Layout - Simplified single column
+  if (isMobile) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-primary-50 to-white dark:from-gray-900 dark:to-gray-800 flex flex-col safe-area-top safe-area-bottom">
+        {/* Mobile Header */}
+        <div className="flex-shrink-0 px-6 pt-12 pb-6">
+          <div className="flex items-center justify-center gap-2 mb-8">
+            <div className="w-10 h-10 bg-primary-600 rounded-xl flex items-center justify-center">
+              <NotebookText className="w-6 h-6 text-white" />
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              NoteFlow
+            </h1>
+          </div>
+
+          <h2 className="text-2xl font-bold text-center text-gray-900 dark:text-white mb-3">
+            云端笔记，随时随地记录
+          </h2>
+
+          <p className="text-center text-gray-600 dark:text-gray-400 text-sm">
+            优雅的 Markdown 编辑器，数据安全同步
+          </p>
+        </div>
+
+        {/* Auth Form */}
+        <div className="flex-1 px-4 pb-8">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-5">
+              {getTitle()}
+            </h3>
+            {view === 'login' && (
+              <InlineLoginForm
+                onSwitchToRegister={() => setView('register')}
+                onSwitchToForgotPassword={() => setView('forgot-password')}
+              />
+            )}
+            {view === 'register' && (
+              <InlineRegisterForm onSwitchToLogin={() => setView('login')} />
+            )}
+            {view === 'forgot-password' && (
+              <InlineForgotPasswordForm onSwitchToLogin={() => setView('login')} />
+            )}
+          </div>
+        </div>
+
+        {/* Feature Pills */}
+        <div className="flex-shrink-0 px-4 pb-8">
+          <div className="flex flex-wrap justify-center gap-2">
+            {['实时预览', '云端同步', '暗色主题'].map((feature) => (
+              <span
+                key={feature}
+                className="px-3 py-1.5 bg-primary-50 dark:bg-gray-700 text-primary-700 dark:text-primary-300 text-xs font-medium rounded-full"
+              >
+                {feature}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Desktop Layout - Side by side
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-primary-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center p-4">
       <div className="w-full max-w-6xl flex flex-col lg:flex-row items-center gap-12 lg:gap-20">

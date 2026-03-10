@@ -29,31 +29,99 @@ body {
   overscroll-behavior: contain;
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* ============================================
+   Mobile-specific styles
+   ============================================ */
+
+/* Safe area insets for notched devices */
+.safe-area-top {
+  padding-top: env(safe-area-inset-top, 0);
 }
 
-::-webkit-scrollbar-track {
-  background: transparent;
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
-::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 3px;
+.safe-area-left {
+  padding-left: env(safe-area-inset-left, 0);
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+.safe-area-right {
+  padding-right: env(safe-area-inset-right, 0);
 }
 
-.dark ::-webkit-scrollbar-thumb {
-  background: #475569;
+/* Safe area for FAB above bottom nav */
+.safe-area-bottom-nav {
+  margin-bottom: env(safe-area-inset-bottom, 0);
 }
 
-.dark ::-webkit-scrollbar-thumb:hover {
-  background: #64748b;
+/* Touch manipulation - prevent double-tap zoom */
+.touch-manipulation {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Active state for touch */
+.touch-active:active {
+  transform: scale(0.98);
+  opacity: 0.9;
+}
+
+/* Prevent text selection on UI elements */
+.no-select {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Smooth scrolling for mobile */
+@supports (overflow-y: auto) {
+  .mobile-scroll {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+}
+
+/* Hide scrollbar on mobile for cleaner look */
+@media (max-width: 640px) {
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  .hide-mobile-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .hide-mobile-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* Pull-to-refresh indicator */
+.pull-indicator {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%) translateY(-100%);
+  transition: transform 0.3s ease;
+}
+
+.pull-indicator.visible {
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Mobile keyboard handling and reduced motion */
+@media (max-width: 640px) {
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 }
 
 /* Markdown editor custom styles */
@@ -72,4 +140,15 @@ body {
   font-family: 'JetBrains Mono', 'Fira Code', monospace !important;
   font-size: 14px !important;
   line-height: 1.7 !important;
+}
+
+/* Focus visible for accessibility */
+:focus-visible {
+  outline: 2px solid theme('colors.primary.500');
+  outline-offset: 2px;
+}
+
+/* Remove default focus outline for mouse users */
+:focus:not(:focus-visible) {
+  outline: none;
 }

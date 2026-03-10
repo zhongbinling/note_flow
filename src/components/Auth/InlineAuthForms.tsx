@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Mail, Lock, User, Loader2, ArrowLeft, CheckCircle } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { authApi } from '../../services/api';
+import { useBreakpoint } from '../../hooks/useBreakpoint';
 
 interface InlineLoginFormProps {
   onSwitchToRegister: () => void;
@@ -12,6 +13,7 @@ export function InlineLoginForm({ onSwitchToRegister, onSwitchToForgotPassword }
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const { login, isLoading, error, clearError } = useAuthStore();
+  const { isMobile } = useBreakpoint();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,16 +21,26 @@ export function InlineLoginForm({ onSwitchToRegister, onSwitchToForgotPassword }
     await login(email, password);
   };
 
+  // Mobile-optimized input classes
+  const inputClasses = isMobile
+    ? 'w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-base'
+    : 'w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100';
+
+  // Mobile-optimized button classes
+  const buttonClasses = isMobile
+    ? 'w-full py-3.5 px-4 bg-primary-600 hover:bg-primary-700 disabled:bg-primary-400 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2 text-base min-h-[48px]'
+    : 'w-full py-2 px-4 bg-primary-600 hover:bg-primary-700 disabled:bg-primary-400 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2';
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {error && (
-        <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-red-600 dark:text-red-400 text-sm">
+        <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400 text-sm">
           {error}
         </div>
       )}
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
           邮箱
         </label>
         <div className="relative">
@@ -39,13 +51,14 @@ export function InlineLoginForm({ onSwitchToRegister, onSwitchToForgotPassword }
             onChange={(e) => setEmail(e.target.value)}
             placeholder="your@email.com"
             required
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            autoComplete="email"
+            className={inputClasses}
           />
         </div>
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
           密码
         </label>
         <div className="relative">
@@ -56,7 +69,8 @@ export function InlineLoginForm({ onSwitchToRegister, onSwitchToForgotPassword }
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"
             required
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            autoComplete="current-password"
+            className={inputClasses}
           />
         </div>
       </div>
@@ -65,7 +79,7 @@ export function InlineLoginForm({ onSwitchToRegister, onSwitchToForgotPassword }
         <button
           type="button"
           onClick={onSwitchToForgotPassword}
-          className="text-sm text-primary-600 hover:text-primary-700"
+          className="text-sm text-primary-600 hover:text-primary-700 py-1"
         >
           忘记密码？
         </button>
@@ -74,7 +88,7 @@ export function InlineLoginForm({ onSwitchToRegister, onSwitchToForgotPassword }
       <button
         type="submit"
         disabled={isLoading}
-        className="w-full py-2 px-4 bg-primary-600 hover:bg-primary-700 disabled:bg-primary-400 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+        className={buttonClasses}
       >
         {isLoading ? (
           <>
@@ -86,7 +100,7 @@ export function InlineLoginForm({ onSwitchToRegister, onSwitchToForgotPassword }
         )}
       </button>
 
-      <p className="text-center text-sm text-gray-600 dark:text-gray-400">
+      <p className="text-center text-sm text-gray-600 dark:text-gray-400 pt-2">
         还没有账号？{' '}
         <button
           type="button"
@@ -111,6 +125,7 @@ export function InlineRegisterForm({ onSwitchToLogin }: InlineRegisterFormProps)
   const [name, setName] = useState('');
   const [validationError, setValidationError] = useState('');
   const { register, isLoading, error, clearError } = useAuthStore();
+  const { isMobile } = useBreakpoint();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,16 +145,26 @@ export function InlineRegisterForm({ onSwitchToLogin }: InlineRegisterFormProps)
     await register(email, password, name || undefined);
   };
 
+  // Mobile-optimized input classes
+  const inputClasses = isMobile
+    ? 'w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-base'
+    : 'w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100';
+
+  // Mobile-optimized button classes
+  const buttonClasses = isMobile
+    ? 'w-full py-3.5 px-4 bg-primary-600 hover:bg-primary-700 disabled:bg-primary-400 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2 text-base min-h-[48px]'
+    : 'w-full py-2 px-4 bg-primary-600 hover:bg-primary-700 disabled:bg-primary-400 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2';
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {(error || validationError) && (
-        <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-red-600 dark:text-red-400 text-sm">
+        <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400 text-sm">
           {validationError || error}
         </div>
       )}
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
           昵称 <span className="text-gray-400">(可选)</span>
         </label>
         <div className="relative">
@@ -149,13 +174,14 @@ export function InlineRegisterForm({ onSwitchToLogin }: InlineRegisterFormProps)
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="你的昵称"
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            autoComplete="name"
+            className={inputClasses}
           />
         </div>
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
           邮箱
         </label>
         <div className="relative">
@@ -166,13 +192,14 @@ export function InlineRegisterForm({ onSwitchToLogin }: InlineRegisterFormProps)
             onChange={(e) => setEmail(e.target.value)}
             placeholder="your@email.com"
             required
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            autoComplete="email"
+            className={inputClasses}
           />
         </div>
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
           密码
         </label>
         <div className="relative">
@@ -184,13 +211,14 @@ export function InlineRegisterForm({ onSwitchToLogin }: InlineRegisterFormProps)
             placeholder="至少 8 个字符"
             required
             minLength={8}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            autoComplete="new-password"
+            className={inputClasses}
           />
         </div>
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
           确认密码
         </label>
         <div className="relative">
@@ -202,7 +230,8 @@ export function InlineRegisterForm({ onSwitchToLogin }: InlineRegisterFormProps)
             placeholder="再次输入密码"
             required
             minLength={8}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            autoComplete="new-password"
+            className={inputClasses}
           />
         </div>
       </div>
@@ -210,7 +239,7 @@ export function InlineRegisterForm({ onSwitchToLogin }: InlineRegisterFormProps)
       <button
         type="submit"
         disabled={isLoading}
-        className="w-full py-2 px-4 bg-primary-600 hover:bg-primary-700 disabled:bg-primary-400 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+        className={buttonClasses}
       >
         {isLoading ? (
           <>
@@ -222,7 +251,7 @@ export function InlineRegisterForm({ onSwitchToLogin }: InlineRegisterFormProps)
         )}
       </button>
 
-      <p className="text-center text-sm text-gray-600 dark:text-gray-400">
+      <p className="text-center text-sm text-gray-600 dark:text-gray-400 pt-2">
         已有账号？{' '}
         <button
           type="button"
@@ -245,6 +274,7 @@ export function InlineForgotPasswordForm({ onSwitchToLogin }: InlineForgotPasswo
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const { isMobile } = useBreakpoint();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -264,22 +294,36 @@ export function InlineForgotPasswordForm({ onSwitchToLogin }: InlineForgotPasswo
     }
   };
 
+  // Mobile-optimized input classes
+  const inputClasses = isMobile
+    ? 'w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-base'
+    : 'w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100';
+
+  // Mobile-optimized button classes
+  const buttonClasses = isMobile
+    ? 'w-full py-3.5 px-4 bg-primary-600 hover:bg-primary-700 disabled:bg-primary-400 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2 text-base min-h-[48px]'
+    : 'w-full py-2 px-4 bg-primary-600 hover:bg-primary-700 disabled:bg-primary-400 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2';
+
+  const secondaryButtonClasses = isMobile
+    ? 'w-full flex items-center justify-center gap-2 py-3 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 min-h-[44px]'
+    : 'w-full flex items-center justify-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200';
+
   if (success) {
     return (
-      <div className="text-center space-y-4">
+      <div className="text-center space-y-4 py-4">
         <div className="flex justify-center">
           <CheckCircle className="text-green-500" size={48} />
         </div>
         <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
           邮件已发送
         </h3>
-        <p className="text-sm text-gray-600 dark:text-gray-400">
+        <p className="text-sm text-gray-600 dark:text-gray-400 px-2">
           如果该邮箱已注册，您将收到一封包含密码重置链接的邮件。
         </p>
         <button
           type="button"
           onClick={onSwitchToLogin}
-          className="inline-flex items-center gap-2 text-primary-600 hover:text-primary-700 font-medium"
+          className="inline-flex items-center gap-2 text-primary-600 hover:text-primary-700 font-medium py-2"
         >
           <ArrowLeft size={16} />
           返回登录
@@ -297,13 +341,13 @@ export function InlineForgotPasswordForm({ onSwitchToLogin }: InlineForgotPasswo
       </div>
 
       {error && (
-        <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-red-600 dark:text-red-400 text-sm">
+        <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400 text-sm">
           {error}
         </div>
       )}
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
           邮箱
         </label>
         <div className="relative">
@@ -314,7 +358,8 @@ export function InlineForgotPasswordForm({ onSwitchToLogin }: InlineForgotPasswo
             onChange={(e) => setEmail(e.target.value)}
             placeholder="your@email.com"
             required
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            autoComplete="email"
+            className={inputClasses}
           />
         </div>
       </div>
@@ -322,7 +367,7 @@ export function InlineForgotPasswordForm({ onSwitchToLogin }: InlineForgotPasswo
       <button
         type="submit"
         disabled={isLoading}
-        className="w-full py-2 px-4 bg-primary-600 hover:bg-primary-700 disabled:bg-primary-400 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+        className={buttonClasses}
       >
         {isLoading ? (
           <>
@@ -337,7 +382,7 @@ export function InlineForgotPasswordForm({ onSwitchToLogin }: InlineForgotPasswo
       <button
         type="button"
         onClick={onSwitchToLogin}
-        className="w-full flex items-center justify-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+        className={secondaryButtonClasses}
       >
         <ArrowLeft size={16} />
         返回登录

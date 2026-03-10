@@ -6,9 +6,16 @@ import NoteList from './components/NoteList';
 import Resizable from './components/common/Resizable';
 import LandingPage from './components/Auth/LandingPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import MobileLayout from './components/mobile/MobileLayout';
+import { DevViewToggle } from './components/dev';
 import { useAuthStore } from './stores/authStore';
+import { useBreakpoint } from './hooks/useBreakpoint';
+import { useMobileUIStore } from './stores/mobileUIStore';
 
-function MainApp() {
+/**
+ * Desktop layout with multi-panel resizable design
+ */
+function DesktopApp() {
   return (
     <MainLayout>
       <div className="flex flex-1 min-h-0 overflow-hidden">
@@ -38,6 +45,35 @@ function MainApp() {
         </Resizable>
       </div>
     </MainLayout>
+  );
+}
+
+/**
+ * Mobile layout with bottom navigation and drawer panels
+ */
+function MobileApp() {
+  return (
+    <MobileLayout>
+      <MarkdownEditor />
+    </MobileLayout>
+  );
+}
+
+/**
+ * Responsive app that switches between desktop and mobile layouts
+ */
+function ResponsiveApp() {
+  const { isMobile: isMobileViewport } = useBreakpoint();
+  const forceMode = useMobileUIStore((state) => state.forceMode);
+
+  // Determine which layout to use based on force mode or viewport
+  const isMobile = forceMode === 'mobile' || (forceMode === 'auto' && isMobileViewport);
+
+  return (
+    <>
+      {isMobile ? <MobileApp /> : <DesktopApp />}
+      <DevViewToggle />
+    </>
   );
 }
 
@@ -79,7 +115,7 @@ function App() {
         path="/*"
         element={
           <AuthenticatedRoute>
-            <MainApp />
+            <ResponsiveApp />
           </AuthenticatedRoute>
         }
       />
